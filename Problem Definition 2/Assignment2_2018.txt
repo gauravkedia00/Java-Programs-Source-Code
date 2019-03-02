@@ -1,0 +1,187 @@
+/**
+ *
+ * Author: GAURAV SHYAM SUNDER KEDIA
+ *
+ */
+
+// Code for Question 1 here =======================================
+public class FindLeftmostZero {
+     static final int N = 10000000;
+    public static void main(String[] args) {
+		//let k = number of processors
+		int k = 4;        
+		int data[] = new int[N];
+        //assume occurrence of zero equally likely for all numbers generated
+        for(int j = 0; j < N; j++) data[j] = (int)(Math.random()*N);
+		//Divide work over space of data
+		int indices[] = new int[k+1];
+		int segSize = N/k;
+		for(int j = 0; j <= k; j++)
+			indices[j] = segSize*j;
+		indices[k] = N;
+		Searcher th[] = new Searcher[k];
+		for(int j = 0; j < k; j++){
+			th[j] = new Searcher(data,indices[j], indices[j+1],0);
+			th[j].start();
+		}
+		for(Searcher s : th){
+		try{s.join();}
+		catch(InterruptedException e){}
+		}
+		boolean found[]=new boolean[k+1];
+		for(int j=0;j<k;j++)
+		found[j] = th[j].getResult();
+		for(int j=0;j<k;j++){
+			if(found[j] == true){
+				int index = indices[j];
+				while(index < indices[j+1] && data[index] != 0) index++;
+				System.out.println(index);
+				break;
+			}
+			else{
+				int index = indices[j];
+				while(index < indices[j+1] && data[index] != 0) index++;
+				if(index == data.length)
+				System.out.println("No zero");
+			}
+			
+		}
+    }
+} 
+
+class Searcher extends Thread{
+	private int f[];
+	private int lb, ub;
+	private int x;
+	private boolean found;
+	Searcher(int f1[],int a, int b, int x){
+		f=f1;lb=a;ub=b;this.x=x;
+	}
+	public void run(){
+		int k = lb; found = false;
+		while (k<ub && !found){
+			if(f[k] == x) found = true;
+			k++;
+		}
+	}
+	boolean getResult(){
+		return found;
+	}
+}
+    
+  
+//End Question 1 =======================================================
+
+//Code for Sieve of Erathostenes
+  
+public class Question2 {
+     static final int N = 1004;
+    public static void main(String[] args) {
+		long startTime = System.currentTimeMillis();
+		//System.out.println(System.currentTimeMillis());
+		//let k = number of processors
+		int k = 4;        
+		int data[] = new int[N];
+        //assume occurrence of zero equally likely for all numbers generated
+        for(int j = 0; j < data.length; j++) {data[j] = j;}
+		data[0]=0; data[1]=0;
+
+		//Divide work over space of data
+		int indices[] = new int[k+1];
+		int segSize = N/k;
+		for(int j = 0; j <= k; j++)
+			indices[j] = segSize*j;
+		indices[k] = N;
+		int a;
+		SieveGenerator th[] = new SieveGenerator[k];
+		for(int j = 0; j < k; j++){
+			if(indices[0] == 0)
+				a = 2;
+			else a=indices[j];
+			th[j] = new SieveGenerator(data,indices[j],indices[j+1],a);
+			th[j].start();
+		}
+		for(SieveGenerator s : th){
+		try{s.join();}
+		catch(InterruptedException e){}
+		}
+		
+		//count primes
+		int total = 0;
+		System.out.println();
+		for(int j = 0; j < data.length; j++){
+          if(data[j] != 0) total++;      
+		}
+		System.out.printf("Number of primes up to %d = %d",data.length,total);
+		System.out.println();
+		long endTime = System.currentTimeMillis();
+		//System.out.println(System.currentTimeMillis());
+		long runningTime = endTime - startTime;
+		System.out.println("RunningTime:"+runningTime);
+	}
+}
+
+class SieveGenerator extends Thread{
+	private int f[];
+	private int lb, ub;
+	private int p;
+	SieveGenerator(int ff[],int a, int b, int c){
+		f=ff;lb=a;ub=b;p=c;
+	}
+	public void run(){
+		while(p < (int)(Math.sqrt(ub))){
+			removeNonPrime(f,p);
+			p++;
+			while(p < (int)(Math.sqrt(ub)) && f[p] == 0) p++;
+		}
+	}
+	void removeNonPrime(int ff[],int x){
+		int j = x*x;
+		while(j < ff.length){
+			if(ff[j] % x == 0) ff[j] = 0; //mark it as non prime
+			j = j + ff[x];
+		}
+	}
+}
+
+
+
+//========================================================
+  
+
+//=======================================================================
+/* Below is the code for a single threaded program for the Sieve of Erathostenes
+   You should copy this program to your own java file and give N a value to execute it
+
+class SieveGenerator{
+	static int N = ????;
+	public static void main(String args[]){
+		int f[] = new int[N];
+		for(int j = 0; j < f.length;j++){f[j] = j;}
+		f[0] = 0; f[1] = 0; //eliminate these cases
+		int p = 2;
+		while(p < (int)(Math.sqrt(N))){
+			removeNonPrime(f,p);
+			//get next prime
+			p++;
+			while(p < (int)(Math.sqrt(N)) && f[p] == 0) p++;
+		}
+		//count primes
+		int total = 0;
+		System.out.println();
+		for(int j = 0; j < f.length; j++){
+          if(f[j] != 0) total++;      
+	  }
+	  System.out.printf("Number of primes up to %d = %d",f.length,total);
+}
+	static void removeNonPrime(int ff[], int k){
+		//ff[k] == prime number
+		int j = k*k;
+		while(j < ff.length){
+			if(ff[j] % k == 0) ff[j] = 0; //mark it as non prime
+			j = j + ff[k];
+		}
+	}
+}
+*/
+//=======================================================================

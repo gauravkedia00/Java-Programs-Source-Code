@@ -1,0 +1,203 @@
+/**
+ *
+ * Author: Gaurav Shyam Sunder Kedia
+ */
+import java.io.*;
+import java.net.*;
+import java.util.concurrent.*;
+import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+ //Code for main server1 here=======================================================
+public class Server1{
+	final static int portUp =1245;
+	final static int RPort = 2000;
+	final static int WPort = 2001;
+	public static void main(String[] args){
+		System.out.println("Server running...");
+		ArrayBlockingQueue<Ticket> buffer = new ArrayBlockingQueue<>(1000);
+		ArrayBlockingQueue<Ticket> dataStore = new ArrayBlockingQueue<>(1000);
+	
+		new Uploader(buffer, dataStore, portUp).start();
+		new Writer(buffer, WPort).start();
+		new Reader(dataStore, RPort).start();
+	}
+}
+ 
+ //End===============================================================================
+ 
+ //Code for main server2 here=======================================================
+public class Server2{
+	final static int portUp =1246;
+	final static int RPort = 2001;
+	final static int WPort = 2000;
+	public static void main(String[] args){
+		System.out.println("Server running...");
+		ArrayBlockingQueue<Ticket> buffer = new ArrayBlockingQueue<Ticket>(1000);
+		ArrayBlockingQueue<Ticket> dataStore = new ArrayBlockingQueue<Ticket>(1000);
+	
+		new Uploader(buffer, dataStore, portUp).start();
+		new Writer(buffer, WPort).start();
+		new Reader(dataStore, RPort).start();
+	}
+} 
+ 
+ //End===============================================================================
+
+public class Ticket {
+	public static String sellerCode;
+	public static String code;
+	
+	public Ticket(String sc, String c) {sellerCode = sc;code = c;}
+	
+	public Ticket(){
+		sellerCode = null;code = null;
+	}
+	
+	public String toString(){
+		return sellerCode + " " + code;
+    }
+	
+	//==============================================================
+	//Methods used to read and write to streams over sockets
+	public void writeOutputStream(DataOutputStream out){
+		try{
+			out.writeUTF(sellerCode);
+			out.writeUTF(code);
+		}catch(IOException e){e.printStackTrace();}
+	}
+	
+    public void readInputStream(DataInputStream in){
+		try{
+			sellerCode = in.readUTF();
+			code = in.readUTF();
+		}catch(IOException e){e.printStackTrace();}
+	}
+}
+
+public class Uploader extends Thread {
+	private ArrayBlockingQueue<Ticket> buffer;
+	private ArrayBlockingQueue<Ticket> dataStore;
+	private int portUp;
+	Uploader(ArrayBlockingQueue<Ticket> b,ArrayBlockingQueue<Ticket> d, int pt){buffer = b;dataStore = d;portUp = pt;}
+	public void run(){
+		try{
+			ServerSocket readsock = new ServerSocket(portUp);
+			while(true){
+				// wait for a service request on port portUp
+				Socket socket = readsock.accept();
+				//start UploaderServer to service request
+				new UploaderServer(socket,buffer,dataStore).start();
+			}
+		}catch(IOException e){e.printStackTrace();}
+	}
+}
+class UploaderServer extends Thread{
+	Socket socket;
+	ArrayBlockingQueue<Ticket>  buffer;
+	ArrayBlockingQueue<Ticket>  dataStore;
+	UploaderServer(Socket s, ArrayBlockingQueue<Ticket> b, ArrayBlockingQueue<Ticket> d){
+		socket = s;
+		buffer = b;
+		dataStore = d;
+	}
+	public void run(){
+		try{
+			DataInputStream in = new DataInputStream(socket.getInputStream());
+			Ticket t = new Ticket();
+			t.readInputStream(in);
+			dataStore.put(t);
+			buffer.put(t);
+			System.out.println(t.toString());
+			socket.close();
+		}catch(IOException | InterruptedException e){}
+	}
+}
+
+public class Reader extends Thread {
+	private ArrayBlockingQueue<Ticket> dataStore;
+	private int portTicket;
+	Reader(ArrayBlockingQueue<Ticket> d, int pt){dataStore = d; portTicket = pt;}
+	public void run(){
+		try{
+			ServerSocket servesock = new ServerSocket(portTicket);
+			while(true){
+				// wait for a service request on port portTicket
+				Socket socket = servesock.accept();
+				readData(socket);
+			}
+		}catch(IOException e){e.printStackTrace();}
+	}
+	private void readData(Socket sk){
+		try{
+			DataInputStream in = new DataInputStream(sk.getInputStream());
+			Ticket t = new Ticket();
+			t.readInputStream(in);
+			dataStore.put(t);
+			System.out.println(t.toString());
+			sk.close();
+		}catch(IOException | InterruptedException e){}
+	}
+}
+
+public class Writer extends Thread {
+    private ArrayBlockingQueue<Ticket> buffer;
+	private int portTicket;
+	Writer(ArrayBlockingQueue<Ticket> b, int pt){buffer = b; portTicket = pt;}
+	public void run(){
+		try{
+			Socket socket;
+			Ticket t = new Ticket();
+			socket = new Socket(InetAddress.getLocalHost(),portTicket);
+			DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+			while(buffer.size()!= 0){
+				t = buffer.take();
+				t.writeOutputStream(out);
+				socket.close();
+			}
+		}catch(IOException | InterruptedException e){}
+	}
+}
+
+ //===================================================================================
+ //Code for Ticket generator=======================================================
+public class TicketUploadGenerator{
+	final static int port1 = 1245;
+	final static int port2 = 1246;
+	final static String sellerCode1 = "123";
+	
+	public static void main(String[] args) {
+		Socket socket1;
+		Socket socket2;
+		try{
+			for(int j=0;j<10;j++){
+			socket1 = new Socket(InetAddress.getLocalHost(),port1);
+			DataOutputStream out1 = new DataOutputStream(socket1.getOutputStream());
+			// List of 6 random numbers
+			List<String> code = new ArrayList<>();
+			for(int i=0;i<6;i++){
+				int random = (int)(Math.random()*39+1);
+				String randomNum = Integer.toString(random);
+				code.add(randomNum);
+			}
+			// Convert List to String
+			String codeString = "";
+
+			for (String s : code)
+			{
+				codeString += s + " ";
+			}
+			Ticket t1 = new Ticket(sellerCode1,codeString);
+			t1.writeOutputStream(out1);
+			socket1.close();
+			socket2 = new Socket(InetAddress.getLocalHost(),port2);
+			DataOutputStream out2 = new DataOutputStream(socket2.getOutputStream());
+			t1.writeOutputStream(out2);
+			socket2.close();
+			}
+		}catch(IOException e){System.out.println(e);}
+	}
+} 
+ 
+ //End===============================================================================
